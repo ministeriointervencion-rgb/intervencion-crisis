@@ -92,6 +92,9 @@ export const DESTINOS_TRASLADO = ['Dentro del templo', 'Baño', 'Estación 1', '
 export const LLEGADAS_PACIENTE = ['Por sus propios medios', 'Lo trajo un servidor', 'En silla de ruedas', 'En camilla', 'Acompañado de un familiar'];
 export const EVOLUCIONES = ['Mejoró', 'Estable', 'Se refirió a un centro médico', 'Se retiró por su cuenta'];
 
+// Después de que la doctora lo atiende, se le ora y se le ministra: queda evidenciado en el expediente
+export const MINISTRACION = ['Se le oró', 'Se le ministró'];
+
 // Hallazgos en infraestructura: qué se hizo
 export const CORRECCIONES = [['corregido', 'Corregido'], ['temporal', 'Corrección temporal'], ['pendiente', 'Pendiente']];
 
@@ -101,7 +104,7 @@ export const ASISTENCIA = [['presente', 'Presente'], ['tarde', 'Llegó tarde'], 
 export const TURNOS = ['Matutina', 'Vespertina', 'Nocturna'];
 export const EVENTOS = ['Conferencia de jóvenes', 'Servicio dominical', 'Servicio de oración', 'Vigilia'];
 export const RESPUESTAS_AREA = ['Sin eventos', 'Todo en orden', 'Fuera de uso', 'Sin iluminación', 'Clausurada'];
-export const TRATAMIENTOS = ['Oración', 'Agua', 'Descanso', 'Menta', 'Toma de presión', 'Cura', 'Inmovilización', 'Medicamento'];
+export const TRATAMIENTOS = ['Agua', 'Descanso', 'Menta', 'Toma de presión', 'Cura', 'Inmovilización', 'Medicamento'];
 
 // Fecha de hoy según el reloj del equipo (no la hora de Londres)
 function hoy() {
@@ -124,7 +127,10 @@ export const trasladoNuevo = () => ({
 
 export const pacienteNuevo = () => ({
   hora: '', doctora: '', nombre: '', edad: '', telefono: '', llegada: '', px: '', dx: '', tx: '', evolucion: '', fotos: [],
+  ministracion: '', ministradoPor: '', ministracionNota: '',
 });
+
+export const versiculoNuevo = () => ({ cita: '', texto: '', comentario: '' });
 
 export const servidorNuevo = (nombre = '') => ({ nombre, estado: '', hora: '' });
 
@@ -179,7 +185,20 @@ export function reporteNuevo(lugares = LUGARES_DE_PARTIDA) {
 // la doctora iba en servidores.estacion1 y los conteos en r.estacion; no había fotos de apertura y cierre;
 // las áreas solo tenían nota; los traslados eran una lista simple de personas con discapacidad;
 // los puestos eran fijos (r.servidores) y ahora son una lista con nombre y persona (r.puestos);
-// no había asistencia de servidores, ni estado de cada área, ni hora/doctora/llegada/evolución/fotos del paciente.
+// no había asistencia de servidores, ni estado de cada área, ni hora/doctora/llegada/evolución/fotos del paciente,
+// ni ministración del paciente (la oración iba como tratamiento), ni comentario del versículo.
+// La oración ya no es tratamiento: si venía en el Tx pasa a la ministración como «Se le oró»
+function pasarOracion(p) {
+  const tx = String(p.tx || '').split(',').map(t => t.trim()).filter(Boolean);
+  if (!tx.some(t => /^oración$/i.test(t))) return p;
+  const ministracion = String(p.ministracion || '').split(',').map(t => t.trim()).filter(Boolean);
+  return {
+    ...p,
+    tx: tx.filter(t => !/^oración$/i.test(t)).join(', '),
+    ministracion: ministracion.includes('Se le oró') ? ministracion.join(', ') : ['Se le oró', ...ministracion].join(', '),
+  };
+}
+
 export function normalizar(r) {
   if (!r) return r;
   const { estacion1: doctoraVieja = '', ...servidores } = r.servidores || {};
@@ -194,9 +213,10 @@ export function normalizar(r) {
       doctoras: previa ? previa.doctoras : doctoraVieja,
       conteos: { ...vacios(ESTACION), ...(previa ? previa.conteos : estacion || {}) },
     },
-    pacientes: sinEstacion(r.pacientes).map(p => ({ ...pacienteNuevo(), ...p })),
+    pacientes: sinEstacion(r.pacientes).map(p => pasarOracion({ ...pacienteNuevo(), ...p })),
     medicamentos: sinEstacion(r.medicamentos),
     asistencia: r.asistencia || [],
+    versiculos: (r.versiculos || []).map(v => ({ ...versiculoNuevo(), ...v })),
     apertura: r.apertura || { foto: '', nota: '' },
     cierre: r.cierre || { foto: '', nota: '' },
     areasExternas: (r.areasExternas || []).map(a => ({ ...areaNueva(), ...a, estado: estadoDe(a) })),

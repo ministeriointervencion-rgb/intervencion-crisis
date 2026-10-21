@@ -1,4 +1,4 @@
-import { cargarReportesIniciales } from './semilla.js';
+import { descartarReportesIniciales } from './semilla.js';
 import { vistaLista } from './vistas/lista.js';
 import { vistaFormulario } from './vistas/formulario.js';
 import { vistaDocumento } from './vistas/documento.js';
@@ -20,12 +20,11 @@ async function mostrar() {
 window.addEventListener('hashchange', mostrar);
 
 (async () => {
-  // La primera vez se guardan los reportes iniciales con sus fotos: tarda unos segundos.
   raiz.innerHTML = '<p class="cargando">Preparando los expedientes…</p>';
   try {
-    await cargarReportesIniciales();
+    await descartarReportesIniciales();
   } catch (err) {
-    console.error('No se pudieron cargar los reportes iniciales', err);
+    console.error('No se pudieron descartar los reportes iniciales', err);
   }
   await mostrar();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

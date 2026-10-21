@@ -1,29 +1,19 @@
-// Carga una sola vez los reportes reales guardados en la carpeta datos-locales (solo existe en la PC del ministerio).
-import { guardar, leerMeta, guardarMeta } from './almacen.js';
-import { normalizar } from './modelo.js';
+// Los 3 reportes reales de octubre (15, 16 y 17) se cargaron al principio para probar el programa.
+// El ministerio pidió descartarlos (21 oct 2026): se quitan una sola vez de cada equipo, con sus fotos
+// y cualquier borrador a medias. Los archivos originales quedaron guardados fuera del programa.
+import { leer, borrar, leerMeta, guardarMeta, borrarReporte } from './almacen.js';
 
-const CLAVE = 'reportes-octubre-2026-cargados';
+const CLAVE = 'reportes-octubre-2026-descartados';
+const DESCARTADOS = ['r-2026-10-15', 'r-2026-10-16', 'r-2026-10-17-matutina'];
 
-export async function cargarReportesIniciales() {
+export async function descartarReportesIniciales() {
   if (await leerMeta(CLAVE)) return;
-  let modulo;
-  try {
-    modulo = await import('../datos-locales/reportes-iniciales.js');
-  } catch {
-    return; // copia sin datos locales (por ejemplo, la instalada en otro equipo)
-  }
-  for (const { archivosFotos, ...datos } of modulo.REPORTES) {
-    const reporte = normalizar(datos);
-    reporte.fotos = [];
-    for (const archivo of archivosFotos) {
-      const resp = await fetch('datos-locales/fotos/' + archivo);
-      if (!resp.ok) continue;
-      const id = reporte.id + '-' + archivo;
-      await guardar('fotos', { id, blob: await resp.blob() });
-      reporte.fotos.push({ id, nota: '' });
-    }
-    reporte.creado = reporte.actualizado = Date.now();
-    await guardar('reportes', reporte);
+  for (const id of DESCARTADOS) {
+    const reporte = await leer('reportes', id);
+    if (reporte) await borrarReporte(reporte);
+    const borrador = await leerMeta('borrador:' + id);
+    if (borrador) await borrarReporte(borrador);
+    await borrar('meta', 'borrador:' + id);
   }
   await guardarMeta(CLAVE, true);
 }

@@ -2,9 +2,9 @@
 // lo escrito se guarda solo como borrador mientras se llena.
 import { leer, leerReporte, guardar, borrar, leerMeta, guardarMeta, reportesOrdenados } from '../almacen.js';
 import {
-  reporteNuevo, normalizar, idsFotos, areaNueva, trasladoNuevo, puestoNuevo, pacienteNuevo, servidorNuevo,
+  reporteNuevo, normalizar, idsFotos, areaNueva, trasladoNuevo, puestoNuevo, pacienteNuevo, servidorNuevo, versiculoNuevo,
   RESUMEN, ESTACION, TEMPLO, TURNOS, EVENTOS, TRATAMIENTOS, ESTADO_APERTURA, ESTADO_CIERRE,
-  MOTIVOS_TRASLADO, MEDIOS_TRASLADO, ORIGENES_TRASLADO, DESTINOS_TRASLADO, LLEGADAS_PACIENTE, EVOLUCIONES,
+  MOTIVOS_TRASLADO, MEDIOS_TRASLADO, ORIGENES_TRASLADO, DESTINOS_TRASLADO, LLEGADAS_PACIENTE, EVOLUCIONES, MINISTRACION,
   CORRECCIONES, ASISTENCIA, fechaLarga, horaBonita,
 } from '../modelo.js';
 import { leerEquipos, guardarEquipos, leerFunciones, guardarFunciones } from '../equipos.js';
@@ -16,7 +16,8 @@ const PASOS = ['Servicio', 'Resumen', 'Puestos', 'Servidores', 'Estación 1', 'P
 const PASO_SERVIDORES = 3;
 
 // Casillas donde se pueden marcar varias personas (en cualquier puesto puede haber más de una)
-const variasPersonas = ruta => ruta === 'supervision' || ruta === 'estacion1.doctoras' || /^puestos\.\d+\.persona$/.test(ruta);
+const variasPersonas = ruta => ruta === 'supervision' || ruta === 'estacion1.doctoras'
+  || /^puestos\.\d+\.persona$/.test(ruta) || /^pacientes\.\d+\.ministradoPor$/.test(ruta);
 
 // Listas que el ministerio puede renombrar y ampliar
 const LISTAS = {
@@ -29,7 +30,7 @@ const VACIOS = {
   pacientes: pacienteNuevo,
   traslados: trasladoNuevo,
   medicamentos: () => ({ nombre: '', detalle: '' }),
-  versiculos: () => ({ cita: '', texto: '' }),
+  versiculos: versiculoNuevo,
   areasExternas: () => areaNueva(),
   areasInternas: () => areaNueva(),
   asistencia: () => servidorNuevo(),
@@ -57,7 +58,9 @@ function sugerencias(otros) {
     temas: unicos(otros.map(o => o.tema)),
     mejoras: unicos(otros.flatMap(o => o.mejoras)),
     logros: unicos(otros.flatMap(o => o.logros)),
-    versiculos: otros.flatMap(o => o.versiculos).filter((v, i, todos) => lleno(v.cita) && todos.findIndex(x => x.cita === v.cita) === i),
+    // El comentario es de cada servicio: al reusar un versículo solo se trae la cita y el texto
+    versiculos: otros.flatMap(o => o.versiculos).filter((v, i, todos) => lleno(v.cita) && todos.findIndex(x => x.cita === v.cita) === i)
+      .map(v => ({ ...versiculoNuevo(), cita: v.cita, texto: v.texto })),
   };
 }
 
@@ -264,8 +267,15 @@ function pasoPacientes(r, c) {
         <div class="chips">${TRATAMIENTOS.map(t => chip('alternar', b + '.tx', t, tieneToken(p.tx, t))).join('')}</div>
         <input data-ruta="${b}.tx" value="${esc(p.tx)}" aria-label="Tratamiento" placeholder="Se llena solo; puedes añadir algo más"></div>
       ${opciones('Evolución', b + '.evolucion', EVOLUCIONES, p.evolucion, true)}
-      ${fotosDe(b + '.fotos', p.fotos, c, 'Fotos del paciente o de la lesión')}`),
-    'La doctora explica cómo llegó el paciente, por qué y cómo lo trataron, y cómo evolucionó.')
+      ${fotosDe(b + '.fotos', p.fotos, c, 'Fotos del paciente o de la lesión')}
+      <div class="ministracion">
+        <span class="grupo-titulo">Ministración</span>
+        <div class="campo"><span>Después de la atención de la doctora (toca lo que se hizo)</span>
+          <div class="chips">${MINISTRACION.map(t => chip('alternar', b + '.ministracion', t, tieneToken(p.ministracion, t))).join('')}</div></div>
+        ${persona(b + '.ministradoPor', 'Le ministró', p.ministradoPor)}
+        ${area(b + '.ministracionNota', 'Cómo se le ministró', p.ministracionNota, 'placeholder="Ej.: se oró por su salud y por paz; recibió palabra de ánimo"')}
+      </div>`),
+    'La doctora explica cómo llegó el paciente, por qué y cómo lo trataron, y cómo evolucionó. Al final queda anotado si se le oró y se le ministró.')
     + `<datalist id="lista-diagnosticos">${c.s.diagnosticos.map(t => `<option value="${esc(t)}">`).join('')}</datalist>`
     + hoja('Medicamentos', 'Personas que solicitaron medicamentos en la Estación 1', fichas(r, 'medicamentos', 'Solicitud', (p, b) => `
       <div class="rejilla">
@@ -366,7 +376,8 @@ function pasoMejoras(r, c) {
       ${reusar('versiculos', c.s.versiculos, r.versiculos, v => v.cita)}
       ${fichas(r, 'versiculos', 'Versículo', (v, b) => `
         ${texto(b + '.cita', 'Cita', v.cita, 'placeholder="Ej.: Efesios 6:7"')}
-        ${area(b + '.texto', 'Texto', v.texto)}`)}`);
+        ${area(b + '.texto', 'Texto', v.texto)}
+        ${area(b + '.comentario', 'Comentario', v.comentario, 'placeholder="Lo que el equipo quiere decir sobre este versículo"')}`)}`);
 }
 
 function pasoCierre(r, c) {

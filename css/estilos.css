@@ -198,6 +198,7 @@ button { cursor: pointer; }
 .chip.chip-riesgo { color: var(--rojo); border-color: #E9C3BD; font-weight: 600; }
 .chip.chip-riesgo.activo { background: var(--rojo); border-color: var(--rojo); color: #fff; }
 .hallazgo-cuerpo { display: grid; gap: 4px; }
+.ministracion { display: grid; gap: 4px; margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--azul-suave); }
 
 /* Fotos */
 .fotos-de { display: grid; gap: 8px; }
@@ -277,6 +278,7 @@ button { cursor: pointer; }
 .doc-pie-fotos { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); margin-top: 8px !important; }
 .doc-versiculo { margin: 10px 0; }
 .doc-versiculo b { color: var(--tinta); }
+.doc-comentario span { font-weight: 600; color: var(--gris); }
 .doc-fotos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .doc-fotos.chicas { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
 .doc-fotos img { width: 100%; border-radius: 8px; border: 1px solid var(--linea); }

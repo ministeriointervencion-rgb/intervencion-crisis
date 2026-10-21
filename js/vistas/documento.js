@@ -34,7 +34,8 @@ function bloqueHtml(b, urls) {
       ${b.fotos.length ? `<p class="doc-pie-fotos">Lo que se encontró</p>${cuadricula(b.fotos, urls, 'doc-fotos chicas')}` : ''}
       ${b.fotosCorreccion.length ? `<p class="doc-pie-fotos">Después de la corrección</p>${cuadricula(b.fotosCorreccion, urls, 'doc-fotos chicas')}` : ''}</article>`;
     case 'vinetas': return `<ul>${b.items.map(t => `<li><p>${esc(t)}</p></li>`).join('')}</ul>`;
-    case 'versiculo': return `<div class="doc-versiculo"><b>${esc(b.cita)}</b><p>“${esc(b.texto)}”</p></div>`;
+    case 'versiculo': return `<div class="doc-versiculo"><b>${esc(b.cita)}</b>${lleno(b.texto) ? `<p>“${esc(b.texto)}”</p>` : ''}
+      ${lleno(b.comentario) ? `<p class="doc-comentario"><span>Comentario:</span> ${esc(b.comentario)}</p>` : ''}</div>`;
     case 'fotoFija': return `<figure class="doc-foto-fija">
       ${b.id && urls.get(b.id) ? `<img src="${urls.get(b.id)}" alt="Foto de la Estación 1">` : ''}
       ${lleno(b.nota) ? `<figcaption>${esc(b.nota)}</figcaption>` : ''}</figure>`;

@@ -167,7 +167,8 @@ export async function descargarWord(r) {
       case 'vinetas': return b.items.map(t => new Paragraph({ bullet: { level: 0 }, spacing: { after: 60 }, children: corridas(t) }));
       case 'versiculo': return [
         new Paragraph({ spacing: { before: 120 }, children: [new TextRun({ text: b.cita, bold: true, color: AZUL_TITULO })] }),
-        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `“${b.texto}”`, italics: true })] }),
+        ...(lleno(b.texto) ? [new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `“${b.texto}”`, italics: true })] })] : []),
+        ...(lleno(b.comentario) ? [par('Comentario', b.comentario)] : []),
       ];
       case 'fotos': return fotos(b.fotos);
       case 'fotoFija': return fotoFija(b);

@@ -1,5 +1,5 @@
 // Permite usar el programa sin internet. Al cambiar archivos, subir VERSION para renovar la copia.
-const VERSION = 'intervencion-v12';
+const VERSION = 'intervencion-v15';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/estilos.css',
   'icons/logo-marca.png', 'icons/logo-completo.png', 'icons/icono-192.png', 'icons/icono-512.png',

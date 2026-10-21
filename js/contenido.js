@@ -98,10 +98,10 @@ export function contenido(r) {
   titulo('Logros');
   b.push(r.logros.some(lleno) ? { tipo: 'vinetas', items: r.logros.filter(lleno) } : ninguno('Ninguno.'));
 
-  const versiculos = r.versiculos.filter(v => lleno(v.cita) || lleno(v.texto));
+  const versiculos = r.versiculos.filter(v => lleno(v.cita) || lleno(v.texto) || lleno(v.comentario));
   if (versiculos.length) {
     titulo('Versículos del día');
-    versiculos.forEach(v => b.push({ tipo: 'versiculo', cita: v.cita, texto: v.texto }));
+    versiculos.forEach(v => b.push({ tipo: 'versiculo', cita: v.cita, texto: v.texto, comentario: v.comentario }));
   }
   if (r.fotos.length) {
     titulo('Fotos anexas');
@@ -128,6 +128,9 @@ export function datosPaciente(p) {
     ['Dx — Diagnóstico', p.dx],
     ['Tx — Tratamiento', p.tx],
     ['Evolución', p.evolucion],
+    ['Ministración', p.ministracion],
+    ['Le ministró', p.ministradoPor],
+    ['Cómo se le ministró', p.ministracionNota],
   ].filter(([, v]) => lleno(v));
 }
 
