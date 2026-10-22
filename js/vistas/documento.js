@@ -18,8 +18,8 @@ function bloqueHtml(b, urls) {
     case 'parrafo': return `<p class="${b.suave ? 'doc-mision' : ''}">${esc(b.texto)}</p>`;
     case 'alerta': return `<p class="doc-alerta">⚠ ${esc(b.texto)}</p>`;
     case 'pares': return pares(b.filas);
-    case 'tabla': return `<table class="doc-tabla"><tbody>${b.filas.map(([k, v, total]) =>
-      `<tr class="${total ? 'total' : ''}"><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
+    case 'tabla': return `<table class="doc-tabla"><tbody>${b.filas.map(([k, v, clase]) =>
+      `<tr class="${clase}"><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
     case 'asistencia': return `<ul class="doc-asistencia">${b.filas.map(([nombre, estado, clave]) =>
       `<li><span>${esc(nombre)}</span><b class="marca-${clave}">${esc(estado)}</b></li>`).join('')}</ul>`;
     case 'paciente': return `<article class="doc-ficha">

@@ -132,10 +132,13 @@ export async function descargarWord(r) {
       case 'pares': return b.filas.map(([k, v]) => par(k, v));
       case 'tabla': return [new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
-        rows: b.filas.map(([k, v, total], i) => new TableRow({ children: [
-          celda(k, { negrita: total, fondo: total ? 'E2ECE3' : i % 2 ? undefined : 'FBFAF6', ancho: { size: 82, type: WidthType.PERCENTAGE } }),
-          celda(v, { negrita: true, centro: true, fondo: total ? 'E2ECE3' : i % 2 ? undefined : 'FBFAF6', ancho: { size: 18, type: WidthType.PERCENTAGE } }),
-        ] })),
+        rows: b.filas.map(([k, v, clase], i) => {
+          const fondo = { total: 'E2ECE3', grupo: 'E7EAF9' }[clase] || (i % 2 ? undefined : 'FBFAF6');
+          return new TableRow({ children: [
+            celda(clase ? k : '    ' + k, { negrita: !!clase, fondo, ancho: { size: 82, type: WidthType.PERCENTAGE } }),
+            celda(v, { negrita: true, centro: true, fondo, ancho: { size: 18, type: WidthType.PERCENTAGE } }),
+          ] });
+        }),
       })];
       case 'asistencia': return [new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },

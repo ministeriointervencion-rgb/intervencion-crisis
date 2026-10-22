@@ -3,20 +3,20 @@
 import { leer, leerReporte, guardar, borrar, leerMeta, guardarMeta, reportesOrdenados } from '../almacen.js';
 import {
   reporteNuevo, normalizar, idsFotos, areaNueva, trasladoNuevo, puestoNuevo, pacienteNuevo, servidorNuevo, versiculoNuevo,
-  RESUMEN, ESTACION, TEMPLO, TURNOS, EVENTOS, TRATAMIENTOS, ESTADO_APERTURA, ESTADO_CIERRE,
+  TURNOS, EVENTOS, ESTADO_APERTURA, ESTADO_CIERRE,
   MOTIVOS_TRASLADO, MEDIOS_TRASLADO, ORIGENES_TRASLADO, DESTINOS_TRASLADO, LLEGADAS_PACIENTE, EVOLUCIONES, MINISTRACION,
-  CORRECCIONES, ASISTENCIA, fechaLarga, horaBonita,
+  CORRECCIONES, ASISTENCIA, fechaLarga, horaBonita, gruposDe, tratamientosDe, subtotal, totalAsistencias, avisosConteo,
 } from '../modelo.js';
 import { leerEquipos, guardarEquipos, leerFunciones, guardarFunciones } from '../equipos.js';
 import { leerLugares, guardarLugares } from '../lugares.js';
 import { elegirPersona, editarIntegrantes, editarLista } from '../selector.js';
 import { esc, aviso, ir, reducirFoto, lleno } from '../util.js';
 
-const PASOS = ['Servicio', 'Resumen', 'Puestos', 'Servidores', 'Estación 1', 'Pacientes', 'Traslados', 'Recorrido', 'Mejoras', 'Cierre'];
-const PASO_SERVIDORES = 3;
+const PASOS = ['Servicio', 'Puestos', 'Presencia', 'Asistencias', 'Pacientes', 'Traslados', 'Recorrido', 'Mejoras', 'Cierre'];
+const PASO_SERVIDORES = 2;
 
 // Casillas donde se pueden marcar varias personas (en cualquier puesto puede haber más de una)
-const variasPersonas = ruta => ruta === 'supervision' || ruta === 'estacion1.doctoras'
+const variasPersonas = ruta => ruta === 'supervision' || ruta === 'doctoras'
   || /^puestos\.\d+\.persona$/.test(ruta) || /^pacientes\.\d+\.ministradoPor$/.test(ruta);
 
 // Listas que el ministerio puede renombrar y ampliar
@@ -196,11 +196,6 @@ function pasoServicio(r, c) {
       'Al llegar, toma una foto de cómo recibieron la estación, antes de tocar nada.', ESTADO_APERTURA);
 }
 
-function pasoResumen(r) {
-  return hoja('Resumen', 'Resumen ejecutivo', RESUMEN.map(([k, t]) => contador('resumen.' + k, t, r.resumen[k])).join(''),
-    'Usa − y + para las cantidades. Si no aplica, déjalo en blanco.');
-}
-
 function pasoPuestos(r, c) {
   return hoja('Puestos', 'Servidores en cada puesto', `
       ${c.ultimo ? `<div class="acciones" style="margin-bottom:12px">
@@ -223,7 +218,7 @@ function pasoPuestos(r, c) {
 
 function pasoServidores(r) {
   const presentes = r.asistencia.filter(s => s.estado === 'presente' || s.estado === 'tarde').length;
-  return hoja('Asistencia', 'Asistencia de los servidores', `
+  return hoja('Presencia', 'Presencia de los servidores', `
       <div class="acciones" style="margin-bottom:12px">
         <button type="button" class="boton chico" data-accion="asistencia-cargar">Cargar equipo y puestos</button>
         <button type="button" class="boton chico" data-accion="asistencia-todos">Marcar a todos presentes</button>
@@ -243,12 +238,28 @@ function pasoServidores(r) {
       </div>`, 'Marca a cada servidor: presente, llegó tarde, ausente o excusado.');
 }
 
-function pasoEstacion(r) {
-  return hoja('Estación 1', 'Estación 1 — Primeros auxilios', `
-      <div style="margin:4px 0 6px">${persona('estacion1.doctoras', 'Doctoras en la estación', r.estacion1.doctoras)}</div>
-      <p class="ayuda" style="margin-top:12px">Pacientes asistidos en la Estación 1</p>
-      ${ESTACION.map(([k, t]) => contador('estacion1.conteos.' + k, t, r.estacion1.conteos[k])).join('')}`)
-    + hoja('Templo', 'Asistencias dentro del templo', TEMPLO.map(([k, t]) => contador('templo.' + k, t, r.templo[k])).join(''));
+// Total y avisos del conteo; se vuelve a pintar mientras se suman números
+function cuentaConteo(r) {
+  const avisos = avisosConteo(r);
+  return `
+    <div class="total-conteo"><span>Total de asistencias</span><b>${totalAsistencias(r)}</b></div>
+    ${avisos.map(a => `<p class="aviso-conteo">⚠ ${esc(a)}</p>`).join('')}`;
+}
+
+// Un solo lugar para todos los números del servicio. El templo tiene 4 estaciones de primeros auxilios,
+// cada una de un servicio distinto; la del ministerio es la Estación 1 (donde están las doctoras).
+function pasoAsistencias(r) {
+  return hoja('Asistencias', 'Conteo de asistencias del servicio', `
+      <div style="margin:4px 0 14px">${persona('doctoras', 'Doctoras en la Estación 1', r.doctoras)}</div>
+      <label class="cotejo"><input type="checkbox" data-accion="medicamentos" ${r.medicamentosActivos ? 'checked' : ''}>
+        <span>Se entregan medicamentos en este servicio <small>(lo marca la doctora)</small></span></label>
+      ${gruposDe(r).map((g, i) => `
+        <div class="grupo-conteo">
+          <span class="grupo-titulo">${esc(g.titulo)} <b data-subtotal="${i}">${subtotal(r, g)}</b></span>
+          ${g.items.map(([k, t]) => contador('conteos.' + k, t, r.conteos[k])).join('')}
+        </div>`).join('')}
+      <div id="cuenta-conteo">${cuentaConteo(r)}</div>`,
+    'Cada número se anota una sola vez aquí. El total y el resumen ejecutivo se calculan solos.');
 }
 
 function pasoPacientes(r, c) {
@@ -264,7 +275,7 @@ function pasoPacientes(r, c) {
       ${area(b + '.px', 'Px — Lo que presenta (por qué vino)', p.px, 'placeholder="Ej.: perdió el equilibrio al bajar del motor, golpe en el codo"')}
       ${texto(b + '.dx', 'Dx — Diagnóstico', p.dx, 'list="lista-diagnosticos" autocomplete="off" placeholder="Toca para elegir o escribe"')}
       <div class="campo"><span>Tx — Tratamiento (toca los que se dieron)</span>
-        <div class="chips">${TRATAMIENTOS.map(t => chip('alternar', b + '.tx', t, tieneToken(p.tx, t))).join('')}</div>
+        <div class="chips">${tratamientosDe(r).map(t => chip('alternar', b + '.tx', t, tieneToken(p.tx, t))).join('')}</div>
         <input data-ruta="${b}.tx" value="${esc(p.tx)}" aria-label="Tratamiento" placeholder="Se llena solo; puedes añadir algo más"></div>
       ${opciones('Evolución', b + '.evolucion', EVOLUCIONES, p.evolucion, true)}
       ${fotosDe(b + '.fotos', p.fotos, c, 'Fotos del paciente o de la lesión')}
@@ -277,11 +288,11 @@ function pasoPacientes(r, c) {
       </div>`),
     'La doctora explica cómo llegó el paciente, por qué y cómo lo trataron, y cómo evolucionó. Al final queda anotado si se le oró y se le ministró.')
     + `<datalist id="lista-diagnosticos">${c.s.diagnosticos.map(t => `<option value="${esc(t)}">`).join('')}</datalist>`
-    + hoja('Medicamentos', 'Personas que solicitaron medicamentos en la Estación 1', fichas(r, 'medicamentos', 'Solicitud', (p, b) => `
+    + (r.medicamentosActivos ? hoja('Medicamentos', 'Personas que solicitaron medicamentos en la Estación 1', fichas(r, 'medicamentos', 'Solicitud', (p, b) => `
       <div class="rejilla">
         ${texto(b + '.nombre', 'Nombre', p.nombre, 'autocomplete="off"')}
         ${texto(b + '.detalle', 'Medicamento entregado', p.detalle)}
-      </div>`))
+      </div>`)) : '')
     + hoja('Niños', 'Niños extraviados', `
         <div class="chips" style="margin-bottom:8px">${chip('elegir', 'ninosDatos', '0', r.ninosDatos === '0', 'Ninguno (0)')}</div>
         ${area('ninosDatos', 'Datos de niños extraviados', r.ninosDatos, 'placeholder="Si hubo, escribe nombre, edad, dónde se encontró y a quién se entregó"')}`);
@@ -396,7 +407,7 @@ function pasoCierre(r, c) {
       'Lo último del servicio: deja la estación en perfecto orden y toma la foto. Con ella se cierra el expediente.', ESTADO_CIERRE);
 }
 
-const DIBUJAR = [pasoServicio, pasoResumen, pasoPuestos, pasoServidores, pasoEstacion, pasoPacientes, pasoTraslados, pasoRecorrido, pasoMejoras, pasoCierre];
+const DIBUJAR = [pasoServicio, pasoPuestos, pasoServidores, pasoAsistencias, pasoPacientes, pasoTraslados, pasoRecorrido, pasoMejoras, pasoCierre];
 
 // ---------- vista ----------
 export async function vistaFormulario(raiz, id) {
@@ -415,7 +426,7 @@ export async function vistaFormulario(raiz, id) {
   let r = borrador;
   if (!r) {
     r = structuredClone(original || reporteNuevo(c.lugares));
-    if (!original && c.ultimo) { r.autor = c.ultimo.autor; r.evento = c.ultimo.evento; }
+    if (!original && c.ultimo) { r.autor = c.ultimo.autor; r.evento = c.ultimo.evento; r.medicamentosActivos = c.ultimo.medicamentosActivos; }
   }
   const fotosOriginales = new Set(original ? idsFotos(original) : []);
   const fotosSubidas = new Set();
@@ -514,7 +525,7 @@ export async function vistaFormulario(raiz, id) {
   function gruposPersonas(ruta) {
     const propio = c.equipos.find(e => e.nombre === r.equipo);
     const resto = c.equipos.filter(e => e !== propio);
-    const esDoctora = ruta === 'estacion1.doctoras' || /^pacientes\.\d+\.doctora$/.test(ruta);
+    const esDoctora = ruta === 'doctoras' || /^pacientes\.\d+\.doctora$/.test(ruta);
     return [
       ...(esDoctora ? [{ titulo: 'Doctoras del ministerio', nombres: c.funciones.doctoras }] : []),
       ...(ruta === 'supervision' ? [{ titulo: 'Supervisores (líderes de grupo)', nombres: c.funciones.supervisores }] : []),
@@ -564,6 +575,18 @@ export async function vistaFormulario(raiz, id) {
       } else el.value = e.target.value;
     });
     if (ruta === 'fecha') titulo();
+    if (ruta.startsWith('conteos.')) {
+      gruposDe(r).forEach((g, i) => { form.querySelector(`[data-subtotal="${i}"]`).textContent = subtotal(r, g); });
+      form.querySelector('#cuenta-conteo').innerHTML = cuentaConteo(r);
+    }
+  });
+
+  // Casilla de la doctora: habilita o quita todo lo de medicamentos
+  form.addEventListener('change', e => {
+    if (e.target.dataset.accion !== 'medicamentos') return;
+    r.medicamentosActivos = e.target.checked;
+    guardarBorrador();
+    redibujar();
   });
 
   form.addEventListener('click', async e => {
@@ -656,7 +679,7 @@ export async function vistaFormulario(raiz, id) {
         const anterior = c.ultimo.puestos.find(x => x.nombre === p.nombre);
         if (anterior) p.persona = anterior.persona;
       }
-      r.estacion1.doctoras = c.ultimo.estacion1.doctoras;
+      r.doctoras = c.ultimo.doctoras;
       // Quien revisó cada área la última vez suele revisarla de nuevo
       for (const clave of ['areasExternas', 'areasInternas']) {
         for (const a of r[clave]) {

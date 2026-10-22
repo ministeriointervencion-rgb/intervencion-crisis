@@ -1,6 +1,6 @@
 // Pantalla principal: los expedientes de servicio, cada uno como una hoja con su pestaña (equipo y fecha).
 import { reportesOrdenados } from '../almacen.js';
-import { diaSemana, cifras, horaBonita } from '../modelo.js';
+import { diaSemana, cifras, horaBonita, numero, gruposDe, CONTEOS } from '../modelo.js';
 import { leerEquipos } from '../equipos.js';
 import { esc, ir, lleno } from '../util.js';
 import { exportarRespaldo, importarRespaldo } from '../respaldo.js';
@@ -10,7 +10,7 @@ const MES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT
 const COLOR_EQUIPO = { 'Equipo 1': 'terracota', 'Equipo 2': 'azul', 'Equipo 3': 'verde' };
 
 function textoBusqueda(r) {
-  return [r.fecha, r.equipo, r.evento, r.tema, r.turno, r.supervision, diaSemana(r.fecha), r.estacion1.doctoras,
+  return [r.fecha, r.equipo, r.evento, r.tema, r.turno, r.supervision, diaSemana(r.fecha), r.doctoras,
     ...r.pacientes.map(p => p.nombre), ...r.traslados.map(t => t.nombre), ...r.puestos.map(p => p.persona),
     ...r.asistencia.map(s => s.nombre)].join(' ').toLowerCase();
 }
@@ -32,6 +32,7 @@ function hoja(r) {
           <span>🙋 Servidores <b>${c.servidoresAnotados ? c.servidores : '—'}</b></span>
         </span>
         <span class="hoja-pie">
+          <span class="marca total">🤝 ${c.asistencias} asistencia${c.asistencias === 1 ? '' : 's'}</span>
           ${c.riesgos ? `<span class="marca riesgo">⚠ ${c.riesgos} con riesgo</span>` : ''}
           ${r.cierre.foto ? '<span class="marca ok">✓ Estación entregada</span>' : '<span class="marca falta">Sin foto de cierre</span>'}
         </span>
@@ -39,17 +40,34 @@ function hoja(r) {
     </button>`;
 }
 
+// Detalle de las asistencias sumadas de todos los expedientes, por grupo
+function detalleAsistencias(suma, conMedicamentos) {
+  return gruposDe({ medicamentosActivos: conMedicamentos }).map(g => {
+    const sub = g.items.reduce((s, [k]) => s + suma[k], 0);
+    return `
+      <div class="libro-grupo">
+        <div class="libro-fila cabeza"><span>${esc(g.titulo)}</span><b>${sub}</b></div>
+        ${g.items.map(([k, t]) => `<div class="libro-fila"><span>${esc(t)}</span><b>${suma[k]}</b></div>`).join('')}
+      </div>`;
+  }).join('');
+}
+
 export async function vistaLista(raiz) {
   const reportes = await reportesOrdenados();
   const equipos = (await leerEquipos()).map(e => e.nombre);
   const total = reportes.reduce((s, r) => {
     const c = cifras(r);
-    return { pacientes: s.pacientes + c.pacientes, hallazgos: s.hallazgos + c.hallazgos, traslados: s.traslados + c.traslados };
-  }, { pacientes: 0, hallazgos: 0, traslados: 0 });
+    return { pacientes: s.pacientes + c.pacientes, hallazgos: s.hallazgos + c.hallazgos, traslados: s.traslados + c.traslados, asistencias: s.asistencias + c.asistencias };
+  }, { pacientes: 0, hallazgos: 0, traslados: 0, asistencias: 0 });
+  // Los medicamentos solo cuentan en los expedientes donde la doctora los habilitó
+  const cuenta = (r, k) => (k === 'medicamentos' && !r.medicamentosActivos ? 0 : numero(r.conteos[k]));
+  const suma = Object.fromEntries(CONTEOS.map(([k]) => [k, reportes.reduce((s, r) => s + cuenta(r, k), 0)]));
+  const conMedicamentos = reportes.some(r => r.medicamentosActivos);
 
   raiz.innerHTML = `
     <header class="portada-lista">
       <h1>Expedientes de servicio</h1>
+      <p class="gran-total"><b>${total.asistencias}</b> asistencias en total</p>
       <p class="tira">
         <span><b>${reportes.length}</b> expedientes</span>
         <span><b>${total.pacientes}</b> pacientes</span>
@@ -57,6 +75,10 @@ export async function vistaLista(raiz) {
         <span><b>${total.hallazgos}</b> hallazgos</span>
       </p>
     </header>
+    <details class="libro-asistencias">
+      <summary>Detalle de las asistencias <span class="tenue">(todos los expedientes)</span></summary>
+      ${detalleAsistencias(suma, conMedicamentos)}
+    </details>
     ${reportes.length ? `
       <div class="filtros">
         <input class="buscar" id="buscar" type="search" placeholder="Buscar día, paciente o servidor">

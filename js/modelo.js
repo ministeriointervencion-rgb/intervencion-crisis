@@ -12,22 +12,40 @@ export const MISION = [
   ['Enviar', 'Comisionar a cada líder y discípulo para que haga la voluntad de Dios y llegue a su destino, llevando el Reino de Dios adonde quiera que vaya.'],
 ];
 
-// Tabla del resumen ejecutivo
-export const RESUMEN = [
-  ['asistencia', 'Asistencia'],
-  ['casosClinicos', 'Casos clínicos'],
-  ['traumas', 'Traumas asistidos'],
-  ['medicamentos', 'Solicitud de medicamentos'],
-  ['sillasRuedas', 'Acompañamiento de personal con discapacidad — sillas de ruedas'],
-  ['bastones', 'Acompañamiento de personal con discapacidad — bastones'],
-  ['discapacidad', 'Acompañamiento de personal con discapacidad'],
-  ['curas', 'Curas'],
-  ['inmovilizaciones', 'Inmovilizaciones'],
-  ['sanidad', 'Sanidad'],
-  ['liberacion', 'Liberación'],
-  ['ninosExtraviados', 'Niños extraviados'],
-  ['totalAsistencias', 'Total asistencias'],
+// Conteo de asistencias del servicio: cada número se anota una sola vez y de aquí salen
+// el resumen ejecutivo, el total y las sumas de la pantalla principal.
+export const GRUPOS_ASISTENCIA = [
+  { titulo: 'Atención médica', items: [
+    ['clinicos', 'Casos clínicos'],
+    ['trauma', 'Traumas'],
+    ['presion', 'Toma de presión arterial'],
+    ['curas', 'Curas'],
+    ['inmovilizaciones', 'Inmovilizaciones'],
+    ['medicamentos', 'Solicitud de medicamentos'],
+  ] },
+  { titulo: 'Espiritual', items: [
+    ['sanidad', 'Sanidad'],
+    ['liberacion', 'Liberación'],
+    ['oraciones', 'Oraciones'],
+  ] },
+  { titulo: 'Personas con discapacidad', items: [
+    ['sillaRuedas', 'Silla de ruedas'],
+    ['baston', 'Bastón'],
+    ['psicomotriz', 'Discapacidad psicomotriz'],
+    ['acompanamientos', 'Acompañamientos'],
+  ] },
+  { titulo: 'Niños', items: [
+    ['ninos', 'Niños extraviados'],
+  ] },
 ];
+export const CONTEOS = GRUPOS_ASISTENCIA.flatMap(g => g.items);
+
+// Por ahora el ministerio no entrega medicamentos. La doctora lo habilita con una casilla en cada expediente;
+// mientras esté apagada, la palabra «medicamento» no sale en el formulario ni en el reporte.
+export const gruposDe = r => r.medicamentosActivos
+  ? GRUPOS_ASISTENCIA
+  : GRUPOS_ASISTENCIA.map(g => ({ ...g, items: g.items.filter(([k]) => k !== 'medicamentos') }));
+export const tratamientosDe = r => (r.medicamentosActivos ? TRATAMIENTOS : TRATAMIENTOS.filter(t => t !== 'Medicamento'));
 
 // Puestos del equipo con los que empezó el programa. Ahora son una lista que el ministerio puede
 // renombrar y ampliar (js/lugares.js); estas claves solo sirven para leer reportes viejos.
@@ -38,28 +56,6 @@ export const SERVIDORES = [
   ['puertaD', 'Puerta D'],
   ['puertasSuperiores', 'Puertas superiores'],
   ['moviles', 'Móviles'],
-];
-
-// El templo tiene 4 estaciones de primeros auxilios, cada una de un servicio distinto.
-// La del Ministerio de Intervención en Crisis es la Estación 1 (donde están las doctoras).
-// Conteos de pacientes de la Estación 1
-export const ESTACION = [
-  ['trauma', 'Total, trauma'],
-  ['clinicos', 'Total, clínicos'],
-  ['ninos', 'Niños extraviados'],
-  ['curas', 'Curas'],
-  ['presion', 'Toma presión arterial'],
-  ['liberacion', 'Liberación'],
-  ['sanidad', 'Sanidad'],
-  ['medicamentos', 'Solicitud de medicamentos'],
-];
-
-export const TEMPLO = [
-  ['acompanamientos', 'Acompañamientos'],
-  ['oraciones', 'Oraciones'],
-  ['baston', 'Asistencia a personas con bastón'],
-  ['psicomotriz', 'Asistencia a personas con discapacidad psicomotrices'],
-  ['sillaRuedas', 'Traslado en silla de ruedas'],
 ];
 
 export const AREAS_EXTERNAS = ['Bautisterio', 'Periferia templo', 'Mana'];
@@ -98,8 +94,8 @@ export const MINISTRACION = ['Se le oró', 'Se le ministró'];
 // Hallazgos en infraestructura: qué se hizo
 export const CORRECCIONES = [['corregido', 'Corregido'], ['temporal', 'Corrección temporal'], ['pendiente', 'Pendiente']];
 
-// Asistencia de los servidores del equipo
-export const ASISTENCIA = [['presente', 'Presente'], ['tarde', 'Llegó tarde'], ['ausente', 'Ausente'], ['excusa', 'Excusado']];
+// Presencia de los servidores del equipo
+export const ASISTENCIA =[['presente', 'Presente'], ['tarde', 'Llegó tarde'], ['ausente', 'Ausente'], ['excusa', 'Excusado']];
 
 export const TURNOS = ['Matutina', 'Vespertina', 'Nocturna'];
 export const EVENTOS = ['Conferencia de jóvenes', 'Servicio dominical', 'Servicio de oración', 'Vigilia'];
@@ -156,15 +152,15 @@ export function reporteNuevo(lugares = LUGARES_DE_PARTIDA) {
     evento: '',
     tema: '',
     autor: '',
-    resumen: vacios(RESUMEN),
     inicio: '',
     fin: '',
     supervision: '',
     puestos: lugares.puestos.map(puestoNuevo),
-    estacion1: { doctoras: '', conteos: vacios(ESTACION) },
+    doctoras: '',
+    medicamentosActivos: false,
+    conteos: vacios(CONTEOS),
     apertura: { foto: '', nota: '' },
     cierre: { foto: '', nota: '' },
-    templo: vacios(TEMPLO),
     areasExternas: lugares.areasExternas.map(areaNueva),
     areasInternas: lugares.areasInternas.map(areaNueva),
     asistencia: [],
@@ -187,6 +183,31 @@ export function reporteNuevo(lugares = LUGARES_DE_PARTIDA) {
 // los puestos eran fijos (r.servidores) y ahora son una lista con nombre y persona (r.puestos);
 // no había asistencia de servidores, ni estado de cada área, ni hora/doctora/llegada/evolución/fotos del paciente,
 // ni ministración del paciente (la oración iba como tratamiento), ni comentario del versículo.
+// Los números se anotaban en tres sitios (resumen, Estación 1 y templo) y ahora van en un solo conteo.
+function unirConteos(r, conteosEstacion) {
+  const res = r.resumen || {};
+  const templo = r.templo || {};
+  const est = conteosEstacion || {};
+  const primero = (...v) => v.find(x => x !== '' && x != null) ?? '';
+  return {
+    ...vacios(CONTEOS),
+    clinicos: primero(est.clinicos, res.casosClinicos),
+    trauma: primero(est.trauma, res.traumas),
+    presion: primero(est.presion),
+    curas: primero(est.curas, res.curas),
+    inmovilizaciones: primero(res.inmovilizaciones),
+    medicamentos: primero(est.medicamentos, res.medicamentos),
+    sanidad: primero(est.sanidad, res.sanidad),
+    liberacion: primero(est.liberacion, res.liberacion),
+    oraciones: primero(templo.oraciones),
+    sillaRuedas: primero(templo.sillaRuedas, res.sillasRuedas),
+    baston: primero(templo.baston, res.bastones),
+    psicomotriz: primero(templo.psicomotriz, res.discapacidad),
+    acompanamientos: primero(templo.acompanamientos),
+    ninos: primero(est.ninos, res.ninosExtraviados),
+  };
+}
+
 // La oración ya no es tratamiento: si venía en el Tx pasa a la ministración como «Se le oró»
 function pasarOracion(p) {
   const tx = String(p.tx || '').split(',').map(t => t.trim()).filter(Boolean);
@@ -203,16 +224,14 @@ export function normalizar(r) {
   if (!r) return r;
   const { estacion1: doctoraVieja = '', ...servidores } = r.servidores || {};
   const previa = r.estaciones?.[0];
-  const { estacion, estaciones, discapacidad, servidores: _viejos, ...n } = r;
+  const { estacion, estaciones, discapacidad, servidores: _viejos, estacion1, resumen, templo, ...n } = r;
   const sinEstacion = lista => (lista || []).map(({ estacion: _, ...p }) => p);
-  const yaNueva = r.estacion1?.conteos && !estaciones;
   return {
     ...n,
     puestos: r.puestos || SERVIDORES.map(([k, t]) => ({ nombre: t, persona: servidores[k] || '' })),
-    estacion1: yaNueva ? r.estacion1 : {
-      doctoras: previa ? previa.doctoras : doctoraVieja,
-      conteos: { ...vacios(ESTACION), ...(previa ? previa.conteos : estacion || {}) },
-    },
+    doctoras: r.doctoras ?? estacion1?.doctoras ?? previa?.doctoras ?? doctoraVieja,
+    conteos: r.conteos ? { ...vacios(CONTEOS), ...r.conteos } : unirConteos(r, estacion1?.conteos || previa?.conteos || estacion),
+    medicamentosActivos: !!r.medicamentosActivos,
     pacientes: sinEstacion(r.pacientes).map(p => pasarOracion({ ...pacienteNuevo(), ...p })),
     medicamentos: sinEstacion(r.medicamentos),
     asistencia: r.asistencia || [],
@@ -234,12 +253,30 @@ export const idsFotos = r => [
   r.cierre?.foto,
 ].filter(Boolean);
 
-// Cifras de las 4 secciones del expediente
+export const subtotal = (r, g) => g.items.reduce((s, [k]) => s + numero(r.conteos[k]), 0);
+export const totalAsistencias = r => gruposDe(r).reduce((s, g) => s + subtotal(r, g), 0);
+
+// Cosas que no cuadran entre el conteo y las fichas escritas
+export function avisosConteo(r) {
+  const avisos = [];
+  const medicos = numero(r.conteos.clinicos) + numero(r.conteos.trauma);
+  if (r.pacientes.length > medicos) avisos.push(`Hay ${r.pacientes.length} ficha(s) de pacientes, pero casos clínicos + traumas suman ${medicos}.`);
+  const enLista = r.medicamentos.filter(p => String(p.nombre || p.detalle || '').trim()).length;
+  if (r.medicamentosActivos && enLista > numero(r.conteos.medicamentos)) avisos.push(`Hay ${enLista} persona(s) en la lista de medicamentos, pero el conteo dice ${numero(r.conteos.medicamentos)}.`);
+  for (const [medio, k] of [['Silla de ruedas', 'sillaRuedas'], ['Bastón', 'baston']]) {
+    const n = r.traslados.filter(t => t.medio === medio).length;
+    if (n > numero(r.conteos[k])) avisos.push(`Hay ${n} traslado(s) en ${medio.toLowerCase()}, pero el conteo dice ${numero(r.conteos[k])}.`);
+  }
+  return avisos;
+}
+
+// Cifras de las secciones del expediente
 export function cifras(r) {
   const areas = [...r.areasExternas, ...r.areasInternas];
   const hallazgos = areas.filter(a => a.estado === 'hallazgo');
   const conMarca = r.asistencia.filter(s => s.estado);
   return {
+    asistencias: totalAsistencias(r),
     pacientes: r.pacientes.length,
     traslados: r.traslados.length,
     hallazgos: hallazgos.length,

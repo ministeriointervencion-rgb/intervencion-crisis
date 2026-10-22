@@ -1,8 +1,8 @@
 // Orden y contenido del reporte terminado (el expediente del servicio). Lo usan la vista en pantalla
 // y el archivo Word, para que siempre coincidan. Las intervenciones van cada una en su sección aparte.
 import {
-  IGLESIA, MINISTERIO, VISION, MISION, RESUMEN, ESTACION, TEMPLO, CORRECCIONES, ASISTENCIA,
-  diaSemana, fechaCorta, horaBonita,
+  IGLESIA, MINISTERIO, VISION, MISION, CORRECCIONES, ASISTENCIA,
+  diaSemana, fechaCorta, horaBonita, gruposDe, subtotal, totalAsistencias,
 } from './modelo.js';
 import { lleno } from './util.js';
 
@@ -33,42 +33,38 @@ export function contenido(r) {
 
   titulo(`Resumen ejecutivo — Servicio ${diaSemana(r.fecha)} ${r.evento || ''} ${fechaCorta(r.fecha)}`.replace(/\s+/g, ' '));
   if (lleno(r.tema)) b.push({ tipo: 'pares', filas: [['Tema', r.tema]] });
-  b.push({ tipo: 'tabla', filas: RESUMEN.map(([k, t]) => [t, valor(r.resumen[k]), k === 'totalAsistencias']) });
+  b.push({ tipo: 'tabla', filas: filasResumen(r) });
 
   titulo('Desarrollo del servicio');
   b.push({ tipo: 'pares', filas: [
     ['Inicio', valor(horaBonita(r.inicio))],
     ['Finalización', valor(horaBonita(r.fin))],
     ['Supervisión general', valor(r.supervision)],
+    ['Doctoras en la Estación 1', valor(r.doctoras)],
   ] });
   sub('Apertura: así se recibió la Estación 1');
   b.push(fotoFija(r.apertura));
   sub('Servidores en cada puesto');
   b.push({ tipo: 'pares', filas: r.puestos.map(p => [p.nombre, valor(p.persona)]) });
 
-  // ---- Sección: asistencia de los servidores ----
-  titulo('Asistencia de los servidores de Intervención en Crisis');
+  // ---- Sección: presencia de los servidores ----
+  titulo('Presencia de los servidores de Intervención en Crisis');
   const marcados = r.asistencia.filter(s => s.estado);
   if (marcados.length) {
     b.push({ tipo: 'asistencia', filas: marcados.map(s => [s.nombre, ETIQUETA_ASISTENCIA[s.estado] + (s.estado === 'tarde' && lleno(s.hora) ? ` (${horaBonita(s.hora)})` : ''), s.estado]) });
-  } else b.push(ninguno('No se registró la asistencia.'));
-
-  // ---- Estación 1 ----
-  titulo('Estación 1 — Primeros auxilios');
-  b.push({ tipo: 'pares', filas: [
-    ['Doctoras', valor(r.estacion1.doctoras)],
-    ...ESTACION.map(([k, t]) => [t, valor(r.estacion1.conteos[k])]),
-  ] });
-  sub('Asistencias dentro del templo');
-  b.push({ tipo: 'pares', filas: TEMPLO.map(([k, t]) => [t, valor(r.templo[k])]) });
+  } else b.push(ninguno('No se registró la presencia.'));
 
   // ---- Sección: asistencia a pacientes ----
   titulo('Reporte de asistencia a pacientes');
-  if (r.pacientes.length) r.pacientes.forEach(p => b.push({ tipo: 'paciente', ...p, hora: horaBonita(p.hora) }));
+  // Con los medicamentos apagados no sale «Medicamento» en el tratamiento
+  const tx = t => (r.medicamentosActivos ? t : String(t || '').split(',').map(x => x.trim()).filter(x => x && !/^medicamento/i.test(x)).join(', '));
+  if (r.pacientes.length) r.pacientes.forEach(p => b.push({ tipo: 'paciente', ...p, tx: tx(p.tx), hora: horaBonita(p.hora) }));
   else b.push(ninguno('No hubo pacientes con datos registrados.'));
-  sub('Personas que solicitaron medicamentos en la Estación 1');
-  const medicamentos = r.medicamentos.filter(p => lleno(p.nombre) || lleno(p.detalle));
-  b.push(medicamentos.length ? { tipo: 'vinetas', items: medicamentos.map(p => [p.nombre, p.detalle].filter(lleno).join(' — ')) } : ninguno('Ninguna.'));
+  if (r.medicamentosActivos) {
+    sub('Personas que solicitaron medicamentos en la Estación 1');
+    const medicamentos = r.medicamentos.filter(p => lleno(p.nombre) || lleno(p.detalle));
+    b.push(medicamentos.length ? { tipo: 'vinetas', items: medicamentos.map(p => [p.nombre, p.detalle].filter(lleno).join(' — ')) } : ninguno('Ninguna.'));
+  }
   b.push({ tipo: 'pares', filas: [['Datos de niños extraviados', valor(r.ninosDatos)]] });
 
   // ---- Sección: traslados ----
@@ -110,6 +106,18 @@ export function contenido(r) {
   titulo('Cierre del servicio: Estación 1 entregada');
   b.push(fotoFija(r.cierre));
   return b;
+}
+
+// Resumen ejecutivo: cada grupo con su subtotal, sus renglones y al final el total que se calcula solo.
+// Cada fila: [texto, valor, clase] con clase '' | 'grupo' | 'total'.
+export function filasResumen(r) {
+  return [
+    ...gruposDe(r).flatMap(g => [
+      [g.titulo, String(subtotal(r, g)), 'grupo'],
+      ...g.items.map(([k, t]) => [t, valor(r.conteos[k]), '']),
+    ]),
+    ['Total de asistencias', String(totalAsistencias(r)), 'total'],
+  ];
 }
 
 const fotoFija = ({ foto, nota }) => (foto || lleno(nota)
