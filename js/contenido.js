@@ -1,5 +1,5 @@
 // Orden y contenido del reporte terminado (el expediente del servicio). Lo usan la vista en pantalla
-// y el archivo Word, para que siempre coincidan. Primero la síntesis para los líderes, luego el detalle
+// y el archivo Word, para que siempre coincidan. Tras Visión y Misión, la síntesis para los líderes, luego el detalle
 // (cada intervención en su sección aparte) y al final todas las fotos juntas en un collage numerado.
 import {
   IGLESIA, MINISTERIO, VISION, MISION, CORRECCIONES, ASISTENCIA,
@@ -29,13 +29,13 @@ export function contenido(r) {
   const fotos = fotosDelReporte(r);
   const verFotos = referenciaFotos(fotos);
 
-  titulo('Síntesis del servicio');
-  b.push({ tipo: 'sintesis', ...sintesis(r) });
-
   titulo('Visión');
   b.push({ tipo: 'parrafo', texto: VISION, suave: true });
   titulo('Misión');
   for (const [nombre, texto] of MISION) { sub(nombre); b.push({ tipo: 'parrafo', texto, suave: true }); }
+
+  titulo('Síntesis del servicio');
+  b.push({ tipo: 'sintesis', ...sintesis(r) });
 
   titulo(`Resumen ejecutivo — Servicio ${diaSemana(r.fecha)} ${r.evento || ''} ${fechaCorta(r.fecha)}`.replace(/\s+/g, ' '));
   if (lleno(r.tema)) b.push({ tipo: 'pares', filas: [['Tema', r.tema]] });

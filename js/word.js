@@ -1,5 +1,5 @@
 // Crea el reporte en Word (.docx) dentro del propio equipo, sin internet. Sigue el formato del Word
-// del ministerio: portada azul con el logo, una hoja de síntesis para los líderes, Visión y Misión,
+// del ministerio: portada azul con el logo, Visión y Misión, una hoja de síntesis para los líderes,
 // resumen con el cartel, tablas con rayas, el recorrido del día y al final todas las fotos en un collage
 // numerado. Hoja A4, márgenes de 3 cm, letra Aptos.
 import { leer } from './almacen.js';
@@ -135,12 +135,14 @@ export async function descargarWord(r) {
   // ---------- piezas de texto ----------
   const corridas = (texto, opciones = {}) => String(texto).split('\n')
     .map((linea, i) => new TextRun({ text: linea, break: i ? 1 : 0, ...opciones }));
-  const parrafo = (hijos, { justificado = false, despues = 160, antes = 0 } = {}) => new Paragraph({
+  const parrafo = (hijos, { justificado = false, despues = 160, antes = 0, pegado = false } = {}) => new Paragraph({
     alignment: justificado ? AlignmentType.JUSTIFIED : AlignmentType.LEFT,
     spacing: { before: antes, after: despues, line: 276 },
+    keepNext: pegado,
     children: hijos,
   });
-  const negrita = (texto, opciones) => parrafo(corridas(texto, { bold: true }), opciones);
+  // Los títulos en negrita van siempre en la misma hoja que lo que tienen debajo
+  const negrita = (texto, opciones) => parrafo(corridas(texto, { bold: true }), { pegado: true, ...opciones });
   const texto = (t, opciones) => parrafo(corridas(t), opciones);
   // «Etiqueta: valor», con la etiqueta en negrita
   const par = (k, v, opciones) => parrafo([new TextRun({ text: k + ': ', bold: true }), ...corridas(v)], opciones);
@@ -357,14 +359,17 @@ export async function descargarWord(r) {
     tablaTemas(),
   ];
 
+  // ---------- Visión y Misión, en su propia hoja antes de la síntesis ----------
+  const hojaMision = [
+    negrita('Visión'), texto(VISION, { justificado: true }), negrita('Misión'),
+    ...MISION.flatMap(([nombre, t]) => [negrita(nombre), texto(t, { justificado: true })]),
+  ];
+
   // ---------- cuerpo ----------
   const fotos = fotosDelReporte(r);
   const verFotos = referenciaFotos(fotos);
   const cuerpo = [];
   const poner = (...piezas) => cuerpo.push(...piezas.flat());
-
-  poner(negrita('Visión'), texto(VISION, { justificado: true }), negrita('Misión'));
-  for (const [nombre, t] of MISION) poner(negrita(nombre), texto(t, { justificado: true }));
 
   poner(negrita(`Resumen ejecutivo ${[r.evento, r.tema].filter(lleno).join(' - ').toUpperCase()} - ${fechaCorta(r.fecha)}`.replace(/\s+/g, ' ')));
   if (lleno(r.tema)) poner(negrita('Tema: ' + r.tema.toUpperCase()));
@@ -473,7 +478,7 @@ export async function descargarWord(r) {
     ...await collage(fotos),
   ];
 
-  // Cada parte empieza en hoja nueva: portada, síntesis, reporte detallado y fotos
+  // Cada parte empieza en hoja nueva: portada, Visión y Misión, síntesis, reporte detallado y fotos
   const hoja = (margen, children) => ({
     properties: { page: { size: { width: 11906, height: 16838 }, margin: { ...margen, left: CM3, right: CM3 } } },
     children,
@@ -485,6 +490,7 @@ export async function descargarWord(r) {
     styles: { default: { document: { run: { font: LETRA, size: 22 } } } },
     sections: [
       hoja({ top: 760, bottom: 600 }, portada),
+      hoja(normal, hojaMision),
       hoja(normal, hojaSintesis),
       hoja(normal, cuerpo),
       hoja(normal, hojasFotos),

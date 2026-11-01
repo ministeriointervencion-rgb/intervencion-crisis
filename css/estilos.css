@@ -353,6 +353,7 @@ button { cursor: pointer; }
   .documento { box-shadow: none; padding: 0; }
   .doc-portada { page-break-after: always; border: 0; padding-top: 30vh; }
   .doc-ficha, .doc-versiculo { break-inside: avoid; }
+  .documento h2:has(+ .doc-sintesis) { break-before: page; }
   .doc-sintesis { break-after: page; }
   .documento h2:has(+ .doc-collage) { break-before: page; }
   .doc-collage figcaption, .doc-collage figcaption b, .doc-atencion { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
