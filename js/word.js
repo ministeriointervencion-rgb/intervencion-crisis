@@ -1,12 +1,13 @@
 // Crea el reporte en Word (.docx) dentro del propio equipo, sin internet. Sigue el formato del Word
-// del ministerio: portada azul con el logo, Visión y Misión, resumen con el cartel, tablas con rayas,
-// el recorrido del día y las fotos anexas de dos en dos. Hoja A4, márgenes de 3 cm, letra Aptos.
+// del ministerio: portada azul con el logo, una hoja de síntesis para los líderes, Visión y Misión,
+// resumen con el cartel, tablas con rayas, el recorrido del día y al final todas las fotos en un collage
+// numerado. Hoja A4, márgenes de 3 cm, letra Aptos.
 import { leer } from './almacen.js';
-import { nombreArchivo, datosTraslado, tratamiento } from './contenido.js';
+import { nombreArchivo, datosTraslado, tratamiento, sintesis, fotosDelReporte, referenciaFotos, estacion } from './contenido.js';
 import { cartelPng } from './cartel.js';
 import {
   IGLESIA, MINISTERIO, VISION, MISION, ASISTENCIA, CORRECCIONES,
-  diaSemana, fechaCorta, horaBonita, gruposDe, idsFotos, numero, totalAsistencias,
+  diaSemana, fechaCorta, horaBonita, gruposDe, numero, totalAsistencias,
 } from './modelo.js';
 import { descargar, lleno } from './util.js';
 
@@ -74,11 +75,50 @@ async function logoEnRecuadro() {
   return { datos: await blob.arrayBuffer(), ancho: lienzo.width, alto: lienzo.height };
 }
 
-async function medidas(blob) {
+// Una foto recortada justo al tamaño de su casilla del collage (al doble, para que se vea nítida),
+// con su número y de qué es pegados abajo, como un rótulo
+async function fotoDelCollage(blob, f, ancho, alto) {
   const bmp = await createImageBitmap(blob);
-  const m = { ancho: bmp.width, alto: bmp.height };
+  const W = ancho * 2;
+  const H = alto * 2;
+  const lienzo = document.createElement('canvas');
+  lienzo.width = W;
+  lienzo.height = H;
+  const c = lienzo.getContext('2d');
+  const escala = Math.max(W / bmp.width, H / bmp.height);
+  c.drawImage(bmp, (W - bmp.width * escala) / 2, (H - bmp.height * escala) / 2, bmp.width * escala, bmp.height * escala);
   bmp.close();
-  return m;
+
+  const letra = Math.round(Math.max(20, Math.min(30, W / 16)));
+  const franja = letra * 2.8;
+  const sombra = c.createLinearGradient(0, H - franja, 0, H);
+  sombra.addColorStop(0, 'rgba(0,0,0,0)');
+  sombra.addColorStop(1, 'rgba(0,0,0,.75)');
+  c.fillStyle = sombra;
+  c.fillRect(0, H - franja, W, franja);
+
+  const y = H - letra;
+  const x = letra * 0.5;
+  c.font = `bold ${letra}px Arial, sans-serif`;
+  const anchoNumero = Math.max(letra * 1.5, c.measureText(String(f.n)).width + letra * 0.8);
+  c.fillStyle = '#' + AZUL;
+  c.beginPath();
+  c.roundRect(x, y - letra * 0.75, anchoNumero, letra * 1.5, letra * 0.75);
+  c.fill();
+  c.fillStyle = '#FFFFFF';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(String(f.n), x + anchoNumero / 2, y);
+
+  c.textAlign = 'left';
+  c.font = `${letra}px Arial, sans-serif`;
+  const libre = W - x - anchoNumero - letra;
+  let pie = f.pie;
+  while (pie.length > 1 && c.measureText(pie).width > libre) pie = pie.slice(0, -2) + '…';
+  c.fillText(pie, x + anchoNumero + letra * 0.5, y);
+
+  const jpg = await new Promise(ok => lienzo.toBlob(ok, 'image/jpeg', 0.85));
+  return jpg.arrayBuffer();
 }
 
 export async function descargarWord(r) {
@@ -157,36 +197,64 @@ export async function descargarWord(r) {
     children: [imagen(await cartelPng(r, tipo), 567)],
   });
 
-  // Fotos anexas de dos en dos, dentro de un cuadro con rayas
-  async function fotosAnexas(ids) {
-    const mitad = ANCHO_TEXTO / 2;
-    const casillas = [];
-    for (const id of ids) {
-      const dato = await leer('fotos', id);
-      if (!dato) continue;
-      const m = await medidas(dato.blob);
-      const escala = Math.min(272 / m.ancho, 340 / m.alto);
-      casillas.push(new TableCell({
-        width: { size: mitad, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
-        verticalAlign: VerticalAlign.CENTER,
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({
-          data: await dato.blob.arrayBuffer(),
-          transformation: { width: Math.round(m.ancho * escala), height: Math.round(m.alto * escala) },
-        })] })],
-      }));
+  // ---------- collage de fotos ----------
+  // En cada grupo de seis: una grande con dos chicas al lado y debajo tres medianas. Si sobran menos
+  // de seis, van de dos en dos o de tres en tres para que no queden huecos.
+  const sinRayas = { top: sinRaya, bottom: sinRaya, left: sinRaya, right: sinRaya, insideHorizontal: sinRaya, insideVertical: sinRaya };
+  const MARGEN_FOTO = 30; // separación blanca entre fotos, en veinteavos de punto
+  const pixeles = twips => Math.floor(twips / 15) - 4;
+  const parrafoFoto = (datos, ancho, alto, despues = 0) => new Paragraph({
+    spacing: { before: 0, after: despues },
+    children: [new ImageRun({ data: datos, transformation: { width: ancho, height: alto } })],
+  });
+  const filaFotos = (anchos, celdas) => new Table({
+    width: { size: ANCHO_TEXTO, type: WidthType.DXA },
+    columnWidths: anchos,
+    layout: TableLayoutType.FIXED,
+    borders: sinRayas,
+    rows: [new TableRow({ cantSplit: true, children: celdas.map((hijos, i) => new TableCell({
+      width: { size: anchos[i], type: WidthType.DXA },
+      margins: { top: MARGEN_FOTO, bottom: MARGEN_FOTO, left: MARGEN_FOTO, right: MARGEN_FOTO },
+      children: hijos,
+    })) })],
+  });
+  // Fotos del mismo tamaño en una fila: 1 a lo ancho, 2 a la mitad o 3 a un tercio
+  async function filaIgual(grupo) {
+    const proporcion = [0, 0.58, 0.75, 0.8][grupo.length];
+    const columna = Math.floor(ANCHO_TEXTO / grupo.length);
+    const ancho = pixeles(columna);
+    const alto = Math.round(ancho * proporcion);
+    return filaFotos(grupo.map(() => columna),
+      await Promise.all(grupo.map(async ({ f, blob }) => [parrafoFoto(await fotoDelCollage(blob, f, ancho, alto), ancho, alto)])));
+  }
+  // Una grande a la izquierda y dos chicas una encima de otra a la derecha
+  async function filaGrande([g, a, b]) {
+    const anchos = [Math.round(ANCHO_TEXTO * 2 / 3), ANCHO_TEXTO - Math.round(ANCHO_TEXTO * 2 / 3)];
+    const chica = pixeles(anchos[1]);
+    const altoChica = Math.round(chica * 0.75);
+    const grande = pixeles(anchos[0]);
+    const altoGrande = altoChica * 2 + 4;
+    return filaFotos(anchos, [
+      [parrafoFoto(await fotoDelCollage(g.blob, g.f, grande, altoGrande), grande, altoGrande)],
+      [parrafoFoto(await fotoDelCollage(a.blob, a.f, chica, altoChica), chica, altoChica, 60),
+        parrafoFoto(await fotoDelCollage(b.blob, b.f, chica, altoChica), chica, altoChica)],
+    ]);
+  }
+  async function collage(fotos) {
+    let resto = [];
+    for (const f of fotos) {
+      const dato = await leer('fotos', f.id);
+      if (dato) resto.push({ f, blob: dato.blob });
     }
-    if (!casillas.length) return [texto('No se subieron fotos.')];
-    if (casillas.length % 2) casillas.push(new TableCell({ width: { size: mitad, type: WidthType.DXA }, children: [new Paragraph('')] }));
+    if (!resto.length) return [texto('No se subieron fotos.')];
     const filas = [];
-    for (let i = 0; i < casillas.length; i += 2) filas.push(new TableRow({ cantSplit: true, children: casillas.slice(i, i + 2) }));
-    return [new Table({
-      width: { size: ANCHO_TEXTO, type: WidthType.DXA },
-      columnWidths: [mitad, mitad],
-      layout: TableLayoutType.FIXED,
-      borders: { top: raya, bottom: raya, left: raya, right: raya, insideHorizontal: raya, insideVertical: raya },
-      rows: filas,
-    })];
+    while (resto.length) {
+      if (resto.length >= 5) { filas.push(await filaGrande(resto.slice(0, 3))); resto = resto.slice(3); }
+      const n = resto.length >= 6 || resto.length === 3 ? 3 : resto.length === 1 ? 1 : 2;
+      if (resto.length) { filas.push(await filaIgual(resto.slice(0, n))); resto = resto.slice(n); }
+    }
+    // Un renglón mínimo entre filas para que Word no las junte en una sola tabla
+    return filas.flatMap(f => [f, new Paragraph({ spacing: { before: 0, after: 0, line: 60, lineRule: 'exact' }, children: [] })]);
   }
 
   // ---------- portada ----------
@@ -237,7 +305,61 @@ export async function descargarWord(r) {
     new Paragraph({ spacing: { after: 0, line: 240 }, children: [new TextRun({ text: '', size: 2 })] }),
   ];
 
+  // ---------- síntesis para los líderes ----------
+  // Una sola hoja: lo que requiere atención y lo relevante de cada tema, para no leer el reporte completo
+  const { atencion, temas } = sintesis(r);
+  const chico = (t, opciones = {}) => new TextRun({ text: t, size: 20, ...opciones });
+  const cuadroAtencion = () => new Table({
+    width: { size: ANCHO_TEXTO, type: WidthType.DXA },
+    columnWidths: [ANCHO_TEXTO],
+    layout: TableLayoutType.FIXED,
+    borders: { ...sinRayas, left: { style: BorderStyle.SINGLE, size: 24, color: 'A3392B' } },
+    rows: [new TableRow({ children: [new TableCell({
+      width: { size: ANCHO_TEXTO, type: WidthType.DXA },
+      shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'FBEAE7' },
+      margins: { top: 100, bottom: 100, left: 200, right: 160 },
+      children: [
+        new Paragraph({ spacing: { after: 60 }, children: [chico('Requiere atención', { bold: true, color: 'A3392B' })] }),
+        ...atencion.map(t => new Paragraph({
+          spacing: { after: 40 },
+          indent: { left: 240, hanging: 240 },
+          tabStops: [{ type: TabStopType.LEFT, position: 240 }],
+          children: [chico('•\t' + t)],
+        })),
+      ],
+    })] })],
+  });
+  const anchoTema = 2300;
+  const rayaSuave = { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF' };
+  const tablaTemas = () => new Table({
+    width: { size: ANCHO_TEXTO, type: WidthType.DXA },
+    columnWidths: [anchoTema, ANCHO_TEXTO - anchoTema],
+    layout: TableLayoutType.FIXED,
+    borders: { ...sinRayas, top: rayaSuave, bottom: rayaSuave, insideHorizontal: rayaSuave },
+    rows: temas.map(t => new TableRow({ cantSplit: true, children: [
+      new TableCell({
+        width: { size: anchoTema, type: WidthType.DXA },
+        margins: { top: 80, bottom: 80, left: 0, right: 120 },
+        children: [new Paragraph({ children: [chico(t.nombre, { bold: true, color: AZUL })] })],
+      }),
+      new TableCell({
+        width: { size: ANCHO_TEXTO - anchoTema, type: WidthType.DXA },
+        margins: { top: 80, bottom: 80, left: 0, right: 0 },
+        children: t.lineas.map(l => new Paragraph({ spacing: { after: 30 }, children: [chico(l)] })),
+      }),
+    ] })),
+  });
+  const hojaSintesis = [
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'SÍNTESIS DEL SERVICIO', font: LETRA_PORTADA, bold: true, size: 36, color: AZUL })] }),
+    parrafo([new TextRun({ text: [servicio, r.equipo].filter(lleno).join(' · '), color: '595959' })], { despues: 40 }),
+    parrafo([new TextRun({ text: 'Lo relevante de cada tema. El reporte detallado sigue en las páginas siguientes y las fotos están al final.', italics: true, size: 18, color: '595959' })], { despues: 200 }),
+    ...(atencion.length ? [cuadroAtencion(), espacio()] : []),
+    tablaTemas(),
+  ];
+
   // ---------- cuerpo ----------
+  const fotos = fotosDelReporte(r);
+  const verFotos = referenciaFotos(fotos);
   const cuerpo = [];
   const poner = (...piezas) => cuerpo.push(...piezas.flat());
 
@@ -253,6 +375,8 @@ export async function descargarWord(r) {
     ['Inicio', horaBonita(r.inicio) || '---'],
     ['Finalización', horaBonita(r.fin) || '---'],
     ['Rendimiento', r.rendimiento || '---'],
+    ['Estación 1 al recibirla', estacion(r.apertura, verFotos) || '---'],
+    ['Estación 1 al entregarla', estacion(r.cierre, verFotos) || '---'],
   ]), espacio());
 
   poner(par('Supervisión General', r.supervision || '---'));
@@ -270,8 +394,8 @@ export async function descargarWord(r) {
     ])), espacio());
   }
 
-  const estacion = renglones(TABLA_ESTACION).reduce((s, [k]) => s + numero(r.conteos[k]), 0);
-  poner(negrita('Pacientes asistidos en la estación 1:'), tablaConteo(TABLA_ESTACION, ['Total', estacion]), espacio());
+  const totalEstacion = renglones(TABLA_ESTACION).reduce((s, [k]) => s + numero(r.conteos[k]), 0);
+  poner(negrita('Pacientes asistidos en la estación 1:'), tablaConteo(TABLA_ESTACION, ['Total', totalEstacion]), espacio());
 
   poner(negrita('Asistencias dentro del templo:'), await cartel('templo'), tablaConteo(TABLA_TEMPLO), espacio());
 
@@ -285,6 +409,8 @@ export async function descargarWord(r) {
       a.riesgo ? 'Riesgo' : '',
       lleno(a.revisor) ? 'Lo encontró: ' + a.revisor : '',
       a.correccion ? 'Corrección: ' + ETIQUETA_CORRECCION[a.correccion] + (lleno(a.queSeHizo) ? ' — ' + a.queSeHizo : '') : '',
+      verFotos(a.fotos) ? 'Fotos de lo encontrado: ' + verFotos(a.fotos) : '',
+      verFotos(a.fotosCorreccion) ? 'Fotos de la corrección: ' + verFotos(a.fotosCorreccion) : '',
     ].filter(Boolean);
     return par(a.nombre, [nota, ...detalle].join('\n'));
   };
@@ -309,12 +435,13 @@ export async function descargarWord(r) {
     lleno(p.ministracion) ? 'Ministración: ' + p.ministracion : '',
     lleno(p.ministradoPor) ? 'Le ministró: ' + p.ministradoPor : '',
     lleno(p.ministracionNota) ? 'Cómo se le ministró: ' + p.ministracionNota : '',
+    verFotos(p.fotos) ? 'Fotos: ' + verFotos(p.fotos) : '',
   ]), 200) : [texto('Ninguna.')]);
 
   poner(negrita('Datos de personas con limitación psicomotriz y/o asistencia por bastón o sillas de ruedas que se animaron a compartir sus datos:'));
   poner(r.traslados.length ? numerada(r.traslados.map(t => [
     t.nombre || 'Persona sin nombre',
-    ...datosTraslado({ ...t, hora: horaBonita(t.hora) }).map(([k, v]) => `${k}: ${v}`),
+    ...datosTraslado({ ...t, hora: horaBonita(t.hora), verFotos: verFotos(t.fotos) }).map(([k, v]) => `${k}: ${v}`),
     t.nota,
   ]), 200) : [texto('Ninguna.')]);
 
@@ -340,21 +467,27 @@ export async function descargarWord(r) {
     }
   }
 
-  poner(negrita('Fotos anexas'), await fotosAnexas(idsFotos(r)));
+  // ---------- fotos del servicio: todas juntas en hojas aparte ----------
+  const hojasFotos = [
+    new Paragraph({ spacing: { after: 160 }, children: [new TextRun({ text: 'FOTOS DEL SERVICIO', font: LETRA_PORTADA, bold: true, size: 32, color: AZUL })] }),
+    ...await collage(fotos),
+  ];
 
+  // Cada parte empieza en hoja nueva: portada, síntesis, reporte detallado y fotos
+  const hoja = (margen, children) => ({
+    properties: { page: { size: { width: 11906, height: 16838 }, margin: { ...margen, left: CM3, right: CM3 } } },
+    children,
+  });
+  const normal = { top: 1200, bottom: 1134 };
   const documento = new Document({
     creator: MINISTERIO,
     title: nombreArchivo(r),
     styles: { default: { document: { run: { font: LETRA, size: 22 } } } },
     sections: [
-      {
-        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 760, bottom: 600, left: CM3, right: CM3 } } },
-        children: portada,
-      },
-      {
-        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1200, bottom: 1134, left: CM3, right: CM3 } } },
-        children: cuerpo,
-      },
+      hoja({ top: 760, bottom: 600 }, portada),
+      hoja(normal, hojaSintesis),
+      hoja(normal, cuerpo),
+      hoja(normal, hojasFotos),
     ],
   });
 

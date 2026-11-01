@@ -301,17 +301,28 @@ button { cursor: pointer; }
 .doc-ficha.riesgo { border-left-color: var(--rojo); background: #FDF3F1; }
 .doc-ficha-nombre { display: block; font-family: 'Fraunces', Georgia, serif; color: var(--tinta); font-size: 1.02rem; margin-bottom: 4px; }
 .sello-riesgo { color: var(--rojo); font-weight: 700; font-size: .82rem; font-family: 'Inter', sans-serif; }
-.doc-pie-fotos { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); margin-top: 8px !important; }
 .doc-versiculo { margin: 10px 0; }
 .doc-versiculo b { color: var(--tinta); }
 .doc-comentario span { font-weight: 600; color: var(--gris); }
-.doc-fotos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.doc-fotos.chicas { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
-.doc-fotos img { width: 100%; border-radius: 8px; border: 1px solid var(--linea); }
-.doc-fotos.chicas img { height: 170px; object-fit: cover; }
-.doc-foto-fija { margin: 8px 0 14px; text-align: center; break-inside: avoid; }
-.doc-foto-fija img { max-width: 100%; max-height: 400px; border-radius: 8px; border: 1px solid var(--linea); }
-.doc-foto-fija figcaption { color: var(--gris); font-style: italic; margin-top: 6px; white-space: pre-line; }
+/* Síntesis para los líderes: lo que requiere atención y una o dos líneas por tema */
+.doc-sintesis-nota { color: var(--gris); font-size: .88rem; font-style: italic; }
+.doc-atencion { background: var(--rojo-suave); border-left: 4px solid var(--rojo); border-radius: 0 10px 10px 0; padding: 8px 14px; margin: 10px 0; }
+.doc-atencion b { color: var(--rojo); }
+.doc-atencion ul { margin: 4px 0 0; padding-left: 18px; }
+.doc-temas { display: grid; grid-template-columns: minmax(130px, 190px) 1fr; margin: 8px 0 0; }
+.doc-temas dt, .doc-temas dd { border-top: 1px solid var(--linea); padding: 7px 0; }
+.doc-temas dt { font-weight: 700; color: var(--tinta); padding-right: 12px; }
+.doc-temas dd { margin: 0; }
+.doc-temas dd span { display: block; }
+/* Collage de fotos: en cada grupo de seis, una grande, dos chicas al lado y tres medianas debajo */
+.doc-collage { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 120px; grid-auto-flow: dense; gap: 4px; margin-top: 8px; }
+.doc-collage figure { position: relative; margin: 0; overflow: hidden; grid-column: span 2; grid-row: span 2; break-inside: avoid; }
+.doc-collage figure:nth-child(6n+1) { grid-column: span 4; }
+.doc-collage figure:nth-child(6n+2), .doc-collage figure:nth-child(6n+3) { grid-row: span 1; }
+.doc-collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.doc-collage figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 5px; color: #fff; font-size: .74rem; line-height: 1.25;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .7)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-collage figcaption b { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px; border-radius: 10px; background: var(--azul); text-align: center; }
 
 /* ---------- Aviso flotante ---------- */
 .aviso {
@@ -330,7 +341,9 @@ button { cursor: pointer; }
   .documento { padding: 20px 14px; }
   .doc-par { grid-template-columns: 1fr; }
   .doc-par dd { margin-bottom: 6px; }
-  .doc-fotos { grid-template-columns: 1fr 1fr; }
+  .doc-temas { grid-template-columns: 1fr; }
+  .doc-temas dd { border-top: 0; padding-top: 0; }
+  .doc-collage { grid-auto-rows: 70px; }
 }
 
 @media print {
@@ -339,6 +352,9 @@ button { cursor: pointer; }
   .contenido { padding: 0; max-width: none; }
   .documento { box-shadow: none; padding: 0; }
   .doc-portada { page-break-after: always; border: 0; padding-top: 30vh; }
-  .doc-ficha, .doc-versiculo, .doc-fotos img { break-inside: avoid; }
+  .doc-ficha, .doc-versiculo { break-inside: avoid; }
+  .doc-sintesis { break-after: page; }
+  .documento h2:has(+ .doc-collage) { break-before: page; }
+  .doc-collage figcaption, .doc-collage figcaption b, .doc-atencion { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .documento h2 span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

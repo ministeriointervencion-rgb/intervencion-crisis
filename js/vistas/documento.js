@@ -5,14 +5,23 @@ import { idsFotos } from '../modelo.js';
 import { esc, aviso, ir, lleno } from '../util.js';
 import { descargarWord } from '../word.js';
 
-const cuadricula = (ids, urls, clase = 'doc-fotos') => ids?.length
-  ? `<div class="${clase}">${ids.map((id, i) => `<img src="${urls.get(id) || ''}" alt="Foto ${i + 1}" loading="lazy">`).join('')}</div>`
-  : '';
+// Todas las fotos juntas al final, como un collage: cada una con su número y de qué es
+const collage = (fotos, urls) => `<div class="doc-collage">${fotos.map(f => `
+  <figure><img src="${urls.get(f.id) || ''}" alt="Foto ${f.n}: ${esc(f.pie)}" loading="lazy">
+    <figcaption><b>${f.n}</b>${esc(f.pie)}</figcaption></figure>`).join('')}</div>`;
+
+// Síntesis para los líderes: primero lo que requiere atención y luego una o dos líneas por tema
+const sintesisHtml = ({ atencion, temas }) => `<section class="doc-sintesis">
+  <p class="doc-sintesis-nota">Lo relevante de cada tema. El detalle completo sigue después y las fotos están al final.</p>
+  ${atencion.length ? `<div class="doc-atencion"><b>Requiere atención</b><ul>${atencion.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+  <dl class="doc-temas">${temas.map(t => `<dt>${esc(t.nombre)}</dt><dd>${t.lineas.map(l => `<span>${esc(l)}</span>`).join('')}</dd>`).join('')}</dl>
+</section>`;
 
 const pares = filas => `<dl class="doc-par">${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
 
 function bloqueHtml(b, urls) {
   switch (b.tipo) {
+    case 'sintesis': return sintesisHtml(b);
     case 'titulo': return `<h2><span>${esc(b.texto)}</span></h2>`;
     case 'subtitulo': return `<h3>${esc(b.texto)}</h3>`;
     case 'parrafo': return `<p class="${b.suave ? 'doc-mision' : ''}">${esc(b.texto)}</p>`;
@@ -24,22 +33,17 @@ function bloqueHtml(b, urls) {
       `<li><span>${esc(nombre)}</span><b class="marca-${clave}">${esc(estado)}</b></li>`).join('')}</ul>`;
     case 'paciente': return `<article class="doc-ficha">
       <b class="doc-ficha-nombre">${esc(b.nombre || 'Paciente sin nombre')}</b>
-      ${pares(datosPaciente(b))}${cuadricula(b.fotos, urls, 'doc-fotos chicas')}</article>`;
+      ${pares(datosPaciente(b))}</article>`;
     case 'traslado': return `<article class="doc-ficha azul">
       <b class="doc-ficha-nombre">${esc(b.nombre || 'Persona sin nombre')}</b>
-      ${pares(datosTraslado(b))}${lleno(b.nota) ? `<p>${esc(b.nota)}</p>` : ''}${cuadricula(b.fotos, urls, 'doc-fotos chicas')}</article>`;
+      ${pares(datosTraslado(b))}${lleno(b.nota) ? `<p>${esc(b.nota)}</p>` : ''}</article>`;
     case 'hallazgo': return `<article class="doc-ficha ${b.riesgo ? 'riesgo' : 'verde'}">
       <b class="doc-ficha-nombre">${esc(b.nombre)}${b.riesgo ? ' <span class="sello-riesgo">⚠ Riesgo</span>' : ''}</b>
-      ${pares(datosHallazgo(b))}
-      ${b.fotos.length ? `<p class="doc-pie-fotos">Lo que se encontró</p>${cuadricula(b.fotos, urls, 'doc-fotos chicas')}` : ''}
-      ${b.fotosCorreccion.length ? `<p class="doc-pie-fotos">Después de la corrección</p>${cuadricula(b.fotosCorreccion, urls, 'doc-fotos chicas')}` : ''}</article>`;
+      ${pares(datosHallazgo(b))}</article>`;
     case 'vinetas': return `<ul>${b.items.map(t => `<li><p>${esc(t)}</p></li>`).join('')}</ul>`;
     case 'versiculo': return `<div class="doc-versiculo"><b>${esc(b.cita)}</b>${lleno(b.texto) ? `<p>“${esc(b.texto)}”</p>` : ''}
       ${lleno(b.comentario) ? `<p class="doc-comentario"><span>Comentario:</span> ${esc(b.comentario)}</p>` : ''}</div>`;
-    case 'fotoFija': return `<figure class="doc-foto-fija">
-      ${b.id && urls.get(b.id) ? `<img src="${urls.get(b.id)}" alt="Foto de la Estación 1">` : ''}
-      ${lleno(b.nota) ? `<figcaption>${esc(b.nota)}</figcaption>` : ''}</figure>`;
-    case 'fotos': return cuadricula(b.fotos, urls);
+    case 'collage': return collage(b.fotos, urls);
     default: return '';
   }
 }
