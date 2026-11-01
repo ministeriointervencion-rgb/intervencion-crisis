@@ -39,6 +39,7 @@ export function contenido(r) {
   b.push({ tipo: 'pares', filas: [
     ['Inicio', valor(horaBonita(r.inicio))],
     ['Finalización', valor(horaBonita(r.fin))],
+    ['Rendimiento', valor(r.rendimiento)],
     ['Supervisión general', valor(r.supervision)],
     ['Doctoras en la Estación 1', valor(r.doctoras)],
   ] });
@@ -56,9 +57,7 @@ export function contenido(r) {
 
   // ---- Sección: asistencia a pacientes ----
   titulo('Reporte de asistencia a pacientes');
-  // Con los medicamentos apagados no sale «Medicamento» en el tratamiento
-  const tx = t => (r.medicamentosActivos ? t : String(t || '').split(',').map(x => x.trim()).filter(x => x && !/^medicamento/i.test(x)).join(', '));
-  if (r.pacientes.length) r.pacientes.forEach(p => b.push({ tipo: 'paciente', ...p, tx: tx(p.tx), hora: horaBonita(p.hora) }));
+  if (r.pacientes.length) r.pacientes.forEach(p => b.push({ tipo: 'paciente', ...p, tx: tratamiento(r, p.tx), hora: horaBonita(p.hora) }));
   else b.push(ninguno('No hubo pacientes con datos registrados.'));
   if (r.medicamentosActivos) {
     sub('Personas que solicitaron medicamentos en la Estación 1');
@@ -123,6 +122,10 @@ export function filasResumen(r) {
 const fotoFija = ({ foto, nota }) => (foto || lleno(nota)
   ? { tipo: 'fotoFija', id: foto, nota }
   : { tipo: 'parrafo', texto: 'No se subió foto.', suave: true });
+
+// Con los medicamentos apagados no sale «Medicamento» en el tratamiento
+export const tratamiento = (r, tx) => (r.medicamentosActivos ? tx
+  : String(tx || '').split(',').map(x => x.trim()).filter(x => x && !/^medicamento/i.test(x)).join(', '));
 
 // Datos de un paciente, para pantalla y Word
 export function datosPaciente(p) {

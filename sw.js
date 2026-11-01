@@ -1,11 +1,13 @@
 ﻿// Permite usar el programa sin internet. Al cambiar archivos, subir VERSION para renovar la copia.
-const VERSION = 'intervencion-v16';
+const VERSION = 'intervencion-v17';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/estilos.css',
   'icons/logo-marca.png', 'icons/logo-completo.png', 'icons/icono-192.png', 'icons/icono-512.png',
+  'icons/cartel/fondo.png', 'icons/cartel/clinicos.png', 'icons/cartel/medicamentos.png', 'icons/cartel/oracion.png', 'icons/cartel/ministracion.png', 'icons/cartel/sillaRuedas.png', 'icons/cartel/muletas.png',
+  'icons/cartel/liberacion.png', 'icons/cartel/trauma.png', 'icons/cartel/presion.png', 'icons/cartel/acompanamientos.png', 'icons/cartel/baston.png', 'icons/cartel/psicomotriz.png', 'icons/cartel/otras.png',
   'fonts/fraunces.woff2', 'fonts/inter.woff2',
   'js/app.js', 'js/almacen.js', 'js/modelo.js', 'js/util.js', 'js/semilla.js', 'js/respaldo.js',
-  'js/contenido.js', 'js/word.js', 'js/lib/docx.umd.js', 'js/equipos.js', 'js/selector.js', 'js/lugares.js',
+  'js/contenido.js', 'js/word.js', 'js/cartel.js', 'js/lib/docx.umd.js', 'js/equipos.js', 'js/selector.js', 'js/lugares.js',
   'js/vistas/lista.js', 'js/vistas/formulario.js', 'js/vistas/documento.js',
 ];
 

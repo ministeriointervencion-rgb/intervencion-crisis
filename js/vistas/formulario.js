@@ -3,7 +3,7 @@
 import { leer, leerReporte, guardar, borrar, leerMeta, guardarMeta, reportesOrdenados } from '../almacen.js';
 import {
   reporteNuevo, normalizar, idsFotos, areaNueva, trasladoNuevo, puestoNuevo, pacienteNuevo, servidorNuevo, versiculoNuevo,
-  TURNOS, EVENTOS, ESTADO_APERTURA, ESTADO_CIERRE,
+  TURNOS, EVENTOS, RENDIMIENTOS, ESTADO_APERTURA, ESTADO_CIERRE,
   MOTIVOS_TRASLADO, MEDIOS_TRASLADO, ORIGENES_TRASLADO, DESTINOS_TRASLADO, LLEGADAS_PACIENTE, EVOLUCIONES, MINISTRACION,
   CORRECCIONES, ASISTENCIA, fechaLarga, horaBonita, gruposDe, tratamientosDe, subtotal, totalAsistencias, avisosConteo,
 } from '../modelo.js';
@@ -403,6 +403,8 @@ function pasoCierre(r, c) {
         <button type="button" class="boton chico" data-accion="galeria" data-valor="anexas">+ Subir de la galería</button>
         <span class="tenue">${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}</span>
       </div>`, 'Otras fotos del servicio que no son de un paciente, un traslado o un hallazgo.')
+    + hoja('Rendimiento', 'Rendimiento del servicio', opciones('¿Cómo salió el servicio?', 'rendimiento', RENDIMIENTOS, r.rendimiento),
+      'Sale en la tabla «Desarrollo» del Word.')
     + fotoFija(r, c, 'cierre', 'Foto de la Estación 1 en perfecto orden',
       'Lo último del servicio: deja la estación en perfecto orden y toma la foto. Con ella se cierra el expediente.', ESTADO_CIERRE);
 }

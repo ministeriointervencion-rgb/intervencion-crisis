@@ -26,11 +26,13 @@ export const GRUPOS_ASISTENCIA = [
   { titulo: 'Espiritual', items: [
     ['sanidad', 'Sanidad'],
     ['liberacion', 'Liberación'],
+    ['ministracion', 'Ministración'],
     ['oraciones', 'Oraciones'],
   ] },
   { titulo: 'Personas con discapacidad', items: [
     ['sillaRuedas', 'Silla de ruedas'],
     ['baston', 'Bastón'],
+    ['muletas', 'Muletas'],
     ['psicomotriz', 'Discapacidad psicomotriz'],
     ['acompanamientos', 'Acompañamientos'],
   ] },
@@ -97,6 +99,9 @@ export const CORRECCIONES = [['corregido', 'Corregido'], ['temporal', 'Correcci�
 // Presencia de los servidores del equipo
 export const ASISTENCIA =[['presente', 'Presente'], ['tarde', 'Llegó tarde'], ['ausente', 'Ausente'], ['excusa', 'Excusado']];
 
+// Rendimiento del servicio, como en el Word del ministerio (5/5)
+export const RENDIMIENTOS = ['1/5', '2/5', '3/5', '4/5', '5/5'];
+
 export const TURNOS = ['Matutina', 'Vespertina', 'Nocturna'];
 export const EVENTOS = ['Conferencia de jóvenes', 'Servicio dominical', 'Servicio de oración', 'Vigilia'];
 export const RESPUESTAS_AREA = ['Sin eventos', 'Todo en orden', 'Fuera de uso', 'Sin iluminación', 'Clausurada'];
@@ -154,6 +159,7 @@ export function reporteNuevo(lugares = LUGARES_DE_PARTIDA) {
     autor: '',
     inicio: '',
     fin: '',
+    rendimiento: '',
     supervision: '',
     puestos: lugares.puestos.map(puestoNuevo),
     doctoras: '',
@@ -232,6 +238,7 @@ export function normalizar(r) {
     doctoras: r.doctoras ?? estacion1?.doctoras ?? previa?.doctoras ?? doctoraVieja,
     conteos: r.conteos ? { ...vacios(CONTEOS), ...r.conteos } : unirConteos(r, estacion1?.conteos || previa?.conteos || estacion),
     medicamentosActivos: !!r.medicamentosActivos,
+    rendimiento: r.rendimiento || '',
     pacientes: sinEstacion(r.pacientes).map(p => pasarOracion({ ...pacienteNuevo(), ...p })),
     medicamentos: sinEstacion(r.medicamentos),
     asistencia: r.asistencia || [],
