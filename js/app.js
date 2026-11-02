@@ -5,8 +5,13 @@ import { vistaDocumento } from './vistas/documento.js';
 
 const raiz = document.getElementById('vista');
 let limpiar;
+let hayVersionNueva = false;
+const llenandoFormulario = () => /^#\/(nuevo|editar)/.test(location.hash);
 
 async function mostrar() {
+  // Una ventana abierta desde antes sigue con el programa viejo en memoria: al llegar una versión nueva
+  // se recarga sola, pero nunca en medio del formulario (espera a que se salga de él)
+  if (hayVersionNueva && !llenandoFormulario()) { location.reload(); return; }
   limpiar?.();
   limpiar = null;
   const [, seccion, id] = (location.hash || '#/').slice(1).split('/');
@@ -28,6 +33,14 @@ window.addEventListener('hashchange', mostrar);
   }
   await mostrar();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    const habia = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!habia) return; // primera vez que se instala: no hay nada viejo que cambiar
+      hayVersionNueva = true;
+      if (!llenandoFormulario()) location.reload();
+    });
+    const registro = await navigator.serviceWorker.register('sw.js').catch(() => null);
+    // Buscar versión nueva cada vez que se vuelve al programa, no solo al abrirlo
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) registro?.update().catch(() => {}); });
   }
 })();

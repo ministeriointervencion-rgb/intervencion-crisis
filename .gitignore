@@ -1,2 +1,4 @@
 # DATOS REALES DE PACIENTES Y NOMBRES DEL EQUIPO: nunca se suben a internet.
 datos-locales/
+# Lanzador del ícono del escritorio de esta PC (perfil de Chrome propio)
+abrir-programa.ps1
